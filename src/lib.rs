@@ -1,4 +1,4 @@
-//! This library is a thin wrapper of WinRT [PdfDocumet Class](https://learn.microsoft.com/en-us/uwp/api/windows.data.pdf.pdfdocument?view=winrt-26100) to generate a thumbnail image for PDF.
+//! This library is a thin wrapper of WinRT [PdfDocument Class](https://learn.microsoft.com/en-us/uwp/api/windows.data.pdf.pdfdocument?view=winrt-26100) to generate a thumbnail image for PDF.
 //!
 //! # Example
 //!

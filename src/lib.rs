@@ -33,6 +33,8 @@
 //! }
 //! ```
 
+#![cfg(target_os = "windows")]
+
 use std::fs;
 use std::path::Path;
 use thiserror::Error;

@@ -35,4 +35,5 @@ fn main() -> Result<()> {
 }
 ```
 
+- [crates.io](https://crates.io/crates/pdf-thumb)
 - [Documentation](https://zxrs.github.io/pdf-thumb-docs/pdf_thumb/)

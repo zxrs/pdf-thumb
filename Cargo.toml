@@ -1,0 +1,22 @@
+[package]
+name = "pdf-thumb"
+version = "0.1.0"
+authors = ["zxrs"]
+edition = "2021"
+license = "MIT"
+description = "PDF thumbnail image generator for Windows"
+repository = "https://github.com/zxrs/pdf-thumb"
+keywords = ["pdf", "thumbnail"]
+categories = ["multimedia::images", "os::windows-apis"]
+
+[dependencies]
+thiserror = "2.0"
+
+[dependencies.windows]
+version = "0.59"
+features = [
+    "Data_Pdf",
+    "Storage_Streams"
+]
+
+

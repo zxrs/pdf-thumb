@@ -1,6 +1,6 @@
 [package]
 name = "pdf-thumb"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["zxrs"]
 edition = "2021"
 license = "MIT"
@@ -8,6 +8,7 @@ description = "PDF thumbnail image generator for Windows"
 repository = "https://github.com/zxrs/pdf-thumb"
 keywords = ["pdf", "thumbnail"]
 categories = ["multimedia::images", "os::windows-apis"]
+documentation = "https://zxrs.github.io/pdf-thumb-docs/pdf_thumb/"
 
 [dependencies]
 thiserror = "2.0"

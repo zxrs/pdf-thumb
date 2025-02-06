@@ -4,10 +4,10 @@
 //!
 //! ```
 //! use anyhow::Result;
-//! use pdf_thumb::PdfThumb;
+//! use pdf_thumb::PdfDoc;
 //!
 //! fn main() -> Result<()> {
-//!     let pdf = PdfThumb::open("test.pdf")?;
+//!     let pdf = PdfDoc::open("test.pdf")?;
 //!     let thumb = pdf.thumb()?;
 //!     std::fs::write("thumb.png", &thumb)?; // PNG is default.
 //!     Ok(())
@@ -18,10 +18,10 @@
 //!
 //! ```
 //! use anyhow::Result;
-//! use pdf_thumb::{ImageFormat, Options, PdfThumb};
+//! use pdf_thumb::{ImageFormat, Options, PdfDoc};
 //!
 //! fn main() -> Result<()> {
-//!     let pdf = PdfThumb::open("test.pdf")?;
+//!     let pdf = PdfDoc::open("test.pdf")?;
 //!     let options = Options {
 //!         width: 320,                // Set thumbnail image width.
 //!         format: ImageFormat::Jpeg, // Set thumbnail image format.
@@ -139,11 +139,11 @@ impl ImageFormat {
 }
 
 #[derive(Debug)]
-pub struct PdfThumb {
+pub struct PdfDoc {
     doc: PdfDocument,
 }
 
-impl PdfThumb {
+impl PdfDoc {
     /// Load a PDF document from memory.
     pub fn load(pdf: &[u8]) -> Result<Self, PdfThumbError> {
         let stream = InMemoryRandomAccessStream::new()?;

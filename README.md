@@ -6,10 +6,10 @@ This library is a thin wrapper of WinRT [PdfDocument Class](https://learn.micros
 
 ```rust
 use anyhow::Result;
-use pdf_thumb::PdfThumb;
+use pdf_thumb::PdfDoc;
 
 fn main() -> Result<()> {
-    let pdf = PdfThumb::open("test.pdf")?;
+    let pdf = PdfDoc::open("test.pdf")?;
     let thumb = pdf.thumb()?;
     std::fs::write("thumb.png", &thumb)?; // PNG is default.
     Ok(())
@@ -20,10 +20,10 @@ Some options are also available.
 
 ```rust
 use anyhow::Result;
-use pdf_thumb::{ImageFormat, Options, PdfThumb};
+use pdf_thumb::{ImageFormat, Options, PdfDoc};
 
 fn main() -> Result<()> {
-    let pdf = PdfThumb::open("test.pdf")?;
+    let pdf = PdfDoc::open("test.pdf")?;
     let options = Options {
         width: 320,                // Set thumbnail image width.
         format: ImageFormat::Jpeg, // Set thumbnail image format.

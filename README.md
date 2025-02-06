@@ -4,7 +4,7 @@ This library is a thin wrapper of WinRT [PdfDocumet Class](https://learn.microso
 
 ## Example
 
-```
+```rust
 use anyhow::Result;
 use pdf_thumb::PdfThumb;
 
@@ -18,7 +18,7 @@ fn main() -> Result<()> {
 
 Some options are also available.
 
-```
+```rust
 use anyhow::Result;
 use pdf_thumb::{ImageFormat, Options, PdfThumb};
 

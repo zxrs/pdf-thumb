@@ -32,6 +32,9 @@
 //!     Ok(())
 //! }
 //! ```
+//!
+//! - [crates.io](https://crates.io/crates/pdf-thumb)
+//! - [Repository](https://github.com/zxrs/pdf-thumb)
 
 #![cfg(target_os = "windows")]
 

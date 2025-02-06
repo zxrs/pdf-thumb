@@ -34,3 +34,5 @@ fn main() -> Result<()> {
     Ok(())
 }
 ```
+
+- [Documentation](https://zxrs.github.io/pdf-thumb-docs/pdf_thumb/)

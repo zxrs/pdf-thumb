@@ -2,7 +2,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```rust
 //! use anyhow::Result;
 //! use pdf_thumb::PdfDoc;
 //!
@@ -14,21 +14,22 @@
 //! }
 //! ```
 //!
-//! Some options are also available.
+//! Some options and async operation are also available.
 //!
-//! ```
+//! ```rust
 //! use anyhow::Result;
 //! use pdf_thumb::{ImageFormat, Options, PdfDoc};
 //!
+//! #[tokio::main]
 //! fn main() -> Result<()> {
-//!     let pdf = PdfDoc::open("test.pdf")?;
+//!     let pdf = PdfDoc::open_async("test.pdf").await?;
 //!     let options = Options {
 //!         width: 320,                // Set thumbnail image width.
 //!         format: ImageFormat::Jpeg, // Set thumbnail image format.
 //!         ..Default::default()
 //!     };
-//!     let thumb = pdf.thumb_with_options(options)?;
-//!     std::fs::write("thumb.jpg", &thumb)?;
+//!     let thumb = pdf.thumb_with_options_async(options).await?;
+//!     tokio::fs::write("thumb.jpg", &thumb).await?;
 //!     Ok(())
 //! }
 //! ```
@@ -38,14 +39,17 @@
 
 #![cfg(target_os = "windows")]
 
-use std::fs;
+use dunce::canonicalize;
 use std::path::Path;
 use thiserror::Error;
 use windows::{
-    core::GUID,
-    Data::Pdf::{PdfDocument, PdfPageRenderOptions},
-    Foundation,
-    Storage::Streams::{DataReader, DataWriter, InMemoryRandomAccessStream},
+    core::{GUID, HSTRING},
+    Data::Pdf::{PdfDocument, PdfPage, PdfPageRenderOptions},
+    Foundation::{self, IAsyncAction, IAsyncOperation},
+    Storage::{
+        StorageFile,
+        Streams::{DataReader, DataWriter, InMemoryRandomAccessStream},
+    },
 };
 
 mod guid;
@@ -56,7 +60,7 @@ pub enum PdfThumbError {
     #[error("io error")]
     Io(#[from] std::io::Error),
     #[error("windows error")]
-    WindowsError(#[from] windows::core::Error),
+    Windows(#[from] windows::core::Error),
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -158,8 +162,16 @@ impl PdfDoc {
 
     /// Open a PDF document from a path.
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, PdfThumbError> {
-        let file = fs::read(path)?;
-        Self::load(&file)
+        let file = get_file(path)?.get()?;
+        let doc = open(&file)?.get()?;
+        Ok(Self { doc })
+    }
+
+    /// Open a PDF document from a path asynchronously.
+    pub async fn open_async<P: AsRef<Path>>(path: P) -> Result<Self, PdfThumbError> {
+        let file = get_file(path)?.await?;
+        let doc = open(&file)?.await?;
+        Ok(Self { doc })
     }
 
     /// Get the number of PDF document.
@@ -173,18 +185,56 @@ impl PdfDoc {
         self.thumb_with_options(options)
     }
 
+    /// Generate a thumbnail image with default options asynchronously.
+    pub async fn thumb_async(&self) -> Result<Vec<u8>, PdfThumbError> {
+        let options = Options::default();
+        self.thumb_with_options_async(options).await
+    }
+
     /// Generate a thumbnail image with the specified options.
     pub fn thumb_with_options(&self, options: Options) -> Result<Vec<u8>, PdfThumbError> {
         let page = self.doc.GetPage(options.page)?;
         let output = InMemoryRandomAccessStream::new()?;
-        page.RenderWithOptionsToStreamAsync(&output, options.try_into().as_ref().ok())?
-            .get()?;
-        let input = output.GetInputStreamAt(0)?;
-        let reader = DataReader::CreateDataReader(&input)?;
-        let size = output.Size()?;
-        reader.LoadAsync(size as u32)?.get()?;
-        let mut buf = vec![0; size as usize];
-        reader.ReadBytes(&mut buf)?;
-        Ok(buf)
+        render(page, &output, options)?.get()?;
+        read_bytes(output)
     }
+
+    /// Generate a thumbnail image with the specified options asynchronously.
+    pub async fn thumb_with_options_async(
+        &self,
+        options: Options,
+    ) -> Result<Vec<u8>, PdfThumbError> {
+        let page = self.doc.GetPage(options.page)?;
+        let output = InMemoryRandomAccessStream::new()?;
+        render(page, &output, options)?.await?;
+        read_bytes(output)
+    }
+}
+
+fn get_file<P: AsRef<Path>>(path: P) -> Result<IAsyncOperation<StorageFile>, PdfThumbError> {
+    let path = HSTRING::from(canonicalize(path)?.as_path());
+    StorageFile::GetFileFromPathAsync(&path).map_err(Into::into)
+}
+
+fn open(file: &StorageFile) -> Result<IAsyncOperation<PdfDocument>, PdfThumbError> {
+    PdfDocument::LoadFromFileAsync(file).map_err(Into::into)
+}
+
+fn render(
+    page: PdfPage,
+    output: &InMemoryRandomAccessStream,
+    options: Options,
+) -> Result<IAsyncAction, PdfThumbError> {
+    page.RenderWithOptionsToStreamAsync(output, options.try_into().as_ref().ok())
+        .map_err(Into::into)
+}
+
+fn read_bytes(output: InMemoryRandomAccessStream) -> Result<Vec<u8>, PdfThumbError> {
+    let input = output.GetInputStreamAt(0)?;
+    let reader = DataReader::CreateDataReader(&input)?;
+    let size = output.Size()?;
+    reader.LoadAsync(size as u32)?.get()?;
+    let mut buf = vec![0; size as usize];
+    reader.ReadBytes(&mut buf)?;
+    Ok(buf)
 }

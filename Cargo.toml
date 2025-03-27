@@ -1,6 +1,6 @@
 [package]
 name = "pdf-thumb"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["zxrs"]
 edition = "2021"
 license = "MIT"
@@ -12,10 +12,10 @@ documentation = "https://zxrs.github.io/pdf-thumb-docs/pdf_thumb/"
 
 [dependencies]
 thiserror = "2.0"
-dunce = "1.0"
+windows-future = "0.1"
 
 [dependencies.windows]
-version = "0.59"
+version = "0.60"
 features = [
     "Data_Pdf",
     "Storage",

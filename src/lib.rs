@@ -39,18 +39,21 @@
 
 #![cfg(target_os = "windows")]
 
-use dunce::canonicalize;
-use std::path::Path;
+use std::{
+    ops::{Deref, DivAssign},
+    path::Path,
+};
 use thiserror::Error;
 use windows::{
     core::{GUID, HSTRING},
-    Data::Pdf::{PdfDocument, PdfPage, PdfPageRenderOptions},
-    Foundation::{self, IAsyncAction, IAsyncOperation},
+    Data::Pdf::{PdfDocument as PdfDocument_, PdfPage as PdfPage_, PdfPageRenderOptions},
+    Foundation,
     Storage::{
         StorageFile,
         Streams::{DataReader, DataWriter, InMemoryRandomAccessStream},
     },
 };
+use windows_future::{IAsyncAction, IAsyncOperation};
 
 mod guid;
 use guid::*;
@@ -95,6 +98,9 @@ pub struct Options {
     /// The image format of thumbnail. If `format` is not specified, PNG format is used.
     pub format: ImageFormat,
 }
+
+unsafe impl Send for Options {}
+unsafe impl Sync for Options {}
 
 impl TryFrom<Options> for PdfPageRenderOptions {
     type Error = PdfThumbError;
@@ -143,11 +149,14 @@ impl ImageFormat {
 }
 
 #[derive(Debug)]
-pub struct PdfDoc {
-    doc: PdfDocument,
+pub struct PdfDocument {
+    doc: PdfDocument_,
 }
 
-impl PdfDoc {
+unsafe impl Send for PdfDocument {}
+unsafe impl Sync for PdfDocument {}
+
+impl PdfDocument {
     /// Load a PDF document from memory.
     pub fn load(pdf: &[u8]) -> Result<Self, PdfThumbError> {
         let stream = InMemoryRandomAccessStream::new()?;
@@ -156,7 +165,7 @@ impl PdfDoc {
         writer.StoreAsync()?.get()?;
         writer.FlushAsync()?.get()?;
         writer.DetachStream()?;
-        let doc = PdfDocument::LoadFromStreamAsync(&stream)?.get()?;
+        let doc = PdfDocument_::LoadFromStreamAsync(&stream)?.get()?;
         Ok(Self { doc })
     }
 
@@ -193,7 +202,7 @@ impl PdfDoc {
 
     /// Generate a thumbnail image with the specified options.
     pub fn thumb_with_options(&self, options: Options) -> Result<Vec<u8>, PdfThumbError> {
-        let page = self.doc.GetPage(options.page)?;
+        let page = self.get_page(options.page)?;
         let output = InMemoryRandomAccessStream::new()?;
         render(page, &output, options)?.get()?;
         read_bytes(output)
@@ -204,20 +213,25 @@ impl PdfDoc {
         &self,
         options: Options,
     ) -> Result<Vec<u8>, PdfThumbError> {
-        let page = self.doc.GetPage(options.page)?;
+        let page = self.get_page(options.page)?;
         let output = InMemoryRandomAccessStream::new()?;
         render(page, &output, options)?.await?;
         read_bytes(output)
     }
+
+    pub fn get_page(&self, page_index: u32) -> Result<PdfPage, PdfThumbError> {
+        let page = self.doc.GetPage(page_index)?;
+        Ok(PdfPage::new(page))
+    }
 }
 
 fn get_file<P: AsRef<Path>>(path: P) -> Result<IAsyncOperation<StorageFile>, PdfThumbError> {
-    let path = HSTRING::from(canonicalize(path)?.as_path());
+    let path = HSTRING::from(path.as_ref());
     StorageFile::GetFileFromPathAsync(&path).map_err(Into::into)
 }
 
-fn open(file: &StorageFile) -> Result<IAsyncOperation<PdfDocument>, PdfThumbError> {
-    PdfDocument::LoadFromFileAsync(file).map_err(Into::into)
+fn open(file: &StorageFile) -> Result<IAsyncOperation<PdfDocument_>, PdfThumbError> {
+    PdfDocument_::LoadFromFileAsync(file).map_err(Into::into)
 }
 
 fn render(
@@ -237,4 +251,65 @@ fn read_bytes(output: InMemoryRandomAccessStream) -> Result<Vec<u8>, PdfThumbErr
     let mut buf = vec![0; size as usize];
     reader.ReadBytes(&mut buf)?;
     Ok(buf)
+}
+
+#[derive(Debug)]
+pub struct PdfPage {
+    page: PdfPage_,
+}
+
+unsafe impl Sync for PdfPage {}
+unsafe impl Send for PdfPage {}
+
+impl Deref for PdfPage {
+    type Target = PdfPage_;
+
+    fn deref(&self) -> &Self::Target {
+        &self.page
+    }
+}
+
+impl PdfPage {
+    pub fn new(page: PdfPage_) -> Self {
+        Self { page }
+    }
+
+    pub fn size(&self) -> Result<Size, PdfThumbError> {
+        Ok(self.page.Size()?.into())
+    }
+}
+
+impl Drop for PdfPage {
+    fn drop(&mut self) {
+        self.page.Close().ok();
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Size {
+    width: f32,
+    height: f32,
+}
+
+impl Size {
+    pub fn width(&self) -> f32 {
+        self.width
+    }
+
+    pub fn height(&self) -> f32 {
+        self.height
+    }
+
+    pub fn aspect_ratio(&self) -> f32 {
+        self.width() / self.height()
+    }
+}
+
+impl From<Foundation::Size> for Size {
+    fn from(value: Foundation::Size) -> Self {
+        Self {
+            width: value.Width,
+            height: value.Height,
+        }
+    }
 }
